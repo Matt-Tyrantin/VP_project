@@ -1,0 +1,27 @@
+1. Potrebno je imati virtualni server pomoću Xampp-a, Laragona ili koje god druge aplikacije za tu svrhu.
+
+2. Pokrenuti index.html
+
+Slijedeći koraci su detaljnije opisani u dokumentaciji
+
+3. Prvi graf prikazuje globalno stanje COVID-19-a
+	- može se preči mišem preko stupičastog grafa kako bi se prikazale detaljnije brojke za pojedino područje
+	- sa strane su prikazani aktualni numerirani podaci
+
+4. Drugi graf prikazuje novo i sveukupno stanje po državama
+	- odabirom jedne od šest tipaka će se sortirati graf po toj kategoriji
+		- sve ostale kategorije postaju manje vidljive
+		- pritiskom na isti gumb sve kategorije postaju vidljive
+
+	- oba pod-grafa dijele os sa državama, tako da sortiranje jednog grafa utječe na drugo
+	- uvijek je prikazano samo "TOP 10" država
+
+5. Treći graf prikazuje krivulju po pojedinoj državi
+	- država se odabire pomoću padajučeg izbornika u gornjem-lijevom kutu
+		- ukoliko država nema podataka, ispisuje se poruka "No data for selected country."
+
+	- u gornjem-desnom kutu su prikazani najnoviji podaci za odabranu državu
+	- graf sadrži krivulje za broj oboljelih, ozdravljenih i mrtvih te njihova područja
+	- negativni trend broja oboljelih je pozitivan
+
+6. (Jako) Sažete informacije se nalaze u zaglavlju

@@ -200,7 +200,7 @@
 
             var request = new XMLHttpRequest()
 
-            // Data for global summary
+            // SOURCE: data for globla summary
             request.open('GET', 'https://api.covid19api.com/summary', true);
 
             request.onload = function() {
@@ -233,8 +233,7 @@
                     GLOBAL_STATS.GRAPH
                 );
 
-                // Data for country-specific trends
-                // Load after you load global summary
+                // SOURCE: get country slugs
                 request.open('GET', 'https://api.covid19api.com/countries', true);
 
                 request.onload = function() {
@@ -693,6 +692,7 @@
             }
 
             function SelectChanged(countrySlug) {
+                // SOURCE: country specific data day by day since the outbreak
                 request.open('GET', 'https://api.covid19api.com/total/country/' + countrySlug, true);
 
                 request.onload = function() {
