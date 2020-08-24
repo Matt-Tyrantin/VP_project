@@ -17,16 +17,16 @@
                 <h1>COVID-19 WORLD SPREAD</h1>
 
                 <article class="world-summary">
-                    <h2>Global COVID-19 summary</h2>
+                    <h2>Global summary</h2>
                     <div class="numeric-data float-right">
-                        <p class="main">Active cases<br><span class="active"></span></p>
-                        <p class="sub">Today: <span class="active"></span></p>
+                        <p class="main active">Active cases<br><span class="active"></span></p>
+                        <p class="sub active">Today: <span class="active"></span></p>
 
-                        <p class="main">Recovered<br><span class="recovered"></span></p>
-                        <p class="sub">Today: <span class="recovered"></span></p>
+                        <p class="main recovered">Recovered<br><span class="recovered"></span></p>
+                        <p class="sub recovered">Today: <span class="recovered"></span></p>
 
-                        <p class="main">Deaths<br><span class="deaths"></span></p>
-                        <p class="sub">Today: <span class="deaths"></span></p>
+                        <p class="main deaths">Deaths<br><span class="deaths"></span></p>
+                        <p class="sub deaths">Today: <span class="deaths"></span></p>
                     </div>
                 </article>
 
@@ -54,15 +54,16 @@
             <section>
                 <h1>COVID-19 PER COUNTRY SPREAD</h1>
 
-                <article class="country-picker float-left">
+                <article class="country-picker">
+                    <h2>Trends by country</h2>
                     <p class="country-select float-left">
                         Country: <select id="country-select"></select>
                     </p>
                     
                     <p class="country-data float-right">
-                        Active cases: <span class="active"></span>
-                        Recovered: <span class="recovered"></span>
-                        Deaths: <span class="deaths"></span>
+                        Current active cases: <span class="active"></span>
+                        Total recovered: <span class="recovered"></span>
+                        Total deaths: <span class="deaths"></span>
                     </p>
                     <p id="no-data-warning">No data for selected country.</p>
                 </article>
@@ -123,11 +124,11 @@
 
             var GLOBAL_STATS = {
                 SVG : {
-                    WIDTH  : 1500,
-                    HEIGHT : 500,
+                    WIDTH  : 1470,
+                    HEIGHT : 540,
 
                     MARGIN : {
-                        TOP    : 0,
+                        TOP    : 5,
                         RIGHT  : 0,
                         BOTTOM : 0,
                         LEFT   : 0
@@ -135,8 +136,8 @@
                 },
 
                 GRAPH : {
-                    MAX_WIDTH  : 1500,
-                    MAX_HEIGHT : 500,
+                    MAX_WIDTH  : 1450,
+                    MAX_HEIGHT : 540,
                     BAR_HEIGHT : 30,
 
                     TRANSITION_TIME : 400,
@@ -146,20 +147,20 @@
 
                     MARGIN : {
                         TOP    : 50,
-                        RIGHT  : 50,
-                        BOTTOM : 0,
-                        LEFT   : 50
+                        RIGHT  : 0,
+                        BOTTOM : 40,
+                        LEFT   : 0
                     }
                 }
             };
 
             var COUNTRY_TRENDS = {
                 SVG : {
-                    WIDTH  : 1500,
+                    WIDTH  : 1470,
                     HEIGHT : 600,
 
                     MARGIN : {
-                        TOP    : 0,
+                        TOP    : 20,
                         RIGHT  : 0,
                         BOTTOM : 0,
                         LEFT   : 0
@@ -167,7 +168,7 @@
                 },
 
                 GRAPH : {
-                    MAX_WIDTH  : 1500,
+                    MAX_WIDTH  : 1470,
                     MAX_HEIGHT : 500,
 
                     TRANSITION_TIME : 800,
@@ -179,7 +180,7 @@
                         TOP    : 50,
                         RIGHT  : 50,
                         BOTTOM : 0,
-                        LEFT   : 70
+                        LEFT   : 100
                     }
                 }
             }   
@@ -189,9 +190,9 @@
                 TOTAL_RECOVERED : '#0fd609',
                 TOTAL_DEATHS    : '#e66849',
 
-                NEW_CONFIRMED : '#e4e81c',
-                NEW_RECOVERED : '#0fd609',
-                NEW_DEATHS    : '#e66849',
+                NEW_CONFIRMED : '#fdff96',
+                NEW_RECOVERED : '#86ff82',
+                NEW_DEATHS    : '#ff8a6e',
             }
 
             d3.select('#no-data-warning').style('display', 'none');
@@ -317,12 +318,6 @@
                 let numberText;
 
                 let HandleMouseOver = function() {
-                    let row = d3.select(this);
-                    let x = d3.mouse(this)[0];
-                    let y = parseInt(row.attr('y'));
-                    
-                    mouseHovering = true;
-
                     numberLine = svg.append('line')
                         .attr('visibility', 'hidden')
                         .style('stroke', 'black')
@@ -330,19 +325,24 @@
 
                     numberText = svg.append('text')
                         .attr('visibility', 'hidden');
+                }
 
-                    //while (mouseHovering) {
-                        numberLine
-                            .attr('visibility', 'visible')
-                            .attr('x1', x)
-                            .attr('x2', x)
-                            .attr('y2', y + graphProperties.BAR_HEIGHT);
+                let HandleMouseMove = function() {
+                    let row = d3.select(this);
+                    let x = d3.mouse(this)[0];
+                    let y = parseInt(row.attr('y'));
+
+                    numberLine
+                        .attr('visibility', 'visible')
+                        .attr('x1', x)
+                        .attr('x2', x)
+                        .attr('y1', 50)
+                        .attr('y2', y);
                         
-                        numberText
-                            .attr('visibility', 'visible')
-                            .attr('transform', 'translate(' + x + ',' + 20 + ')')
-                            .text(d3.format('.3s')(xScale.invert(x - graphProperties.MARGIN.LEFT)));
-                    //}
+                    numberText
+                        .attr('visibility', 'visible')
+                        .attr('transform', 'translate(' + (x + 5) + ',' + 55 + ')')
+                        .text(d3.format('.3s')(xScale.invert(x - graphProperties.MARGIN.LEFT)));
                 }
 
                 let HandleMouseOut = function() {
@@ -355,14 +355,19 @@
                     let y = yScale(label);
                     let container = svg.append('g');
                     let colorTotal;
-                    let colorNew = 'yellow';
+                    let colorNew;
 
                     if (label == 'CONFIRMED') {
                         colorTotal = COLORS.TOTAL_CONFIRMED;
+                        colorNew = COLORS.NEW_CONFIRMED;
+
                     } else if (label == 'DEATHS') {
                         colorTotal = COLORS.TOTAL_DEATHS;
+                        colorNew = COLORS.NEW_DEATHS;
+
                     } else {
                         colorTotal = COLORS.TOTAL_RECOVERED;
+                        colorNew = COLORS.NEW_RECOVERED;
                     }
                     
                     container.append('rect')
@@ -372,15 +377,17 @@
                         .attr('width', xScale(totalData))
                         .attr('fill', colorTotal)
                         .on('mouseover', HandleMouseOver)
+                        .on('mousemove', HandleMouseMove)
                         .on('mouseout', HandleMouseOut);
 
                     container.append('rect') 
                         .attr('x', graphProperties.MARGIN.LEFT)
-                        .attr('y', graphProperties.MARGIN.TOP + y + (2*graphProperties.BAR_HEIGHT/ 3))
+                        .attr('y', graphProperties.MARGIN.TOP + y + (2*graphProperties.BAR_HEIGHT/ 3) + 10)
                         .attr('height', graphProperties.BAR_HEIGHT)
                         .attr('width', xScale(newData))
                         .attr('fill', colorNew)
                         .on('mouseover', HandleMouseOver)
+                        .on('mousemove', HandleMouseMove)
                         .on('mouseout', HandleMouseOut);
                 }
 
@@ -495,7 +502,7 @@
                     .attr('y', function (d) {return graphProperties.MARGIN.TOP + yScale(d.Country); })
                     .attr('width', function (d) {return WidthNew(d.NewConfirmed); })
                     .attr('height', graphProperties.BAR_HEIGHT/ 3)
-                    .attr('fill', COLORS.NEW_CONFIRMED);
+                    .attr('fill', COLORS.TOTAL_CONFIRMED);
 
                 barGroupsNew.append('rect')
                     .attr('class', 'bar-recovered')
@@ -503,7 +510,7 @@
                     .attr('y', function (d) {return graphProperties.MARGIN.TOP + yScale(d.Country) + graphProperties.BAR_HEIGHT/ 3; })
                     .attr('width', function (d) {return WidthNew(d.NewRecovered); })
                     .attr('height', graphProperties.BAR_HEIGHT/ 3)
-                    .attr('fill', COLORS.NEW_RECOVERED);
+                    .attr('fill', COLORS.TOTAL_RECOVERED);
 
                 barGroupsNew.append('rect')
                     .attr('class', 'bar-deaths')
@@ -511,7 +518,7 @@
                     .attr('y', function (d) {return graphProperties.MARGIN.TOP + yScale(d.Country) + graphProperties.BAR_HEIGHT*(2/3); })
                     .attr('width', function (d) {return WidthNew(d.NewDeaths); })
                     .attr('height', graphProperties.BAR_HEIGHT/ 3)
-                    .attr('fill', COLORS.NEW_DEATHS);
+                    .attr('fill', COLORS.TOTAL_DEATHS);
 
                 let WidthTotal = function (value) {
                     return  xScaleTotal(value);
