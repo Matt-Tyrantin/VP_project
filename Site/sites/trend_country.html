@@ -1,0 +1,302 @@
+
+<!doctype html>
+
+<html lang="en">
+    <head>
+        <link rel="stylesheet" href="../styles/webpage.css">
+        <link rel="stylesheet" href="../styles/graph.css">
+
+        <script src="https://d3js.org/d3.v3.min.js"></script>
+    </head>
+
+    <body>
+        <nav>
+            <ul>
+                <li><a href="../index.html">WORLD SPREAD</a></li>
+                <li><a href="#">WORLD TREND</a></li>
+                <li><a href="#">SPREAD BY COUNTRY</a></li>
+                <li><a href="#">TREND BY COUNTRY</a></li>
+            </ul>
+        </nav>
+
+        <aside>
+
+        </aside>
+
+        <main>
+            <section>
+                <h1>COVID-19 WORLD SPREAD</h1>
+                <article class="country-picker">
+                    Showing trends for: <select id="country-select"></select>
+                    <p id="no-data-warning">No data for selected country.</p>
+                </article>
+
+                <article class="country-stats">
+
+                </article>
+            </section>
+        </main>
+
+        <script>
+            var COUNTRY_PICKER_CLASS = '.country-picker';
+            var COUNTRY_STATS_CLASS = '.country-stats';
+
+            var PROPERTIES = {
+                SVG : {
+                    WIDTH  : 1500,
+                    HEIGHT : 1000,
+
+                    MARGIN : {
+                        TOP    : 0,
+                        RIGHT  : 0,
+                        BOTTOM : 0,
+                        LEFT   : 0
+                    }
+                },
+
+                GRAPH : {
+                    MAX_WIDTH  : 1500,
+                    MAX_HEIGHT : 500,
+
+                    TRANSITION_TIME : 400,
+                    TRANSITION_EASE : 'linear',
+
+                    STROKE_WIDTH: 2,
+
+                    MARGIN : {
+                        TOP    : 50,
+                        RIGHT  : 50,
+                        BOTTOM : 0,
+                        LEFT   : 70
+                    }
+                }
+            }   
+
+            var COLORS = {
+                TOTAL_CONFIRMED : '#d5e620',
+                TOTAL_RECOVERED : '#0fd609',
+                TOTAL_DEATHS    : '#e66849',
+
+                NEW_CONFIRMED : '#d5e620',
+                NEW_RECOVERED : '#0fd609',
+                NEW_DEATHS    : '#e66849',
+            }
+
+            var request = new XMLHttpRequest()
+
+            request.open('GET', 'https://api.covid19api.com/countries', true);
+
+            request.onload = function() {
+                let data = JSON.parse(this.response);
+
+                if (request.status < 200 || request.status >= 400) {
+                    console.error('Unable to fetch data (Error code: ' + request.status + ')');
+
+                    return null;
+                }
+
+                CountryPicker(COUNTRY_PICKER_CLASS, data);
+            }
+
+            request.send();
+
+            function SelectArticle(articleClass) {
+                let container = d3.select('article' + articleClass);
+
+                if (container == null) {
+                    console.error('Cannot find article with class ' + articleClass);
+
+                    return null;
+                }
+
+                return container;
+            }
+
+            function CountryPicker(articleClass, countries) {
+                let article = SelectArticle(articleClass);
+                let select = article.select('select#country-select');
+                let countriesSorted = Object.values(countries).sort((a, b) => d3.ascending(a.Country, b.Country));
+
+                select.on('change', function () {
+                    SelectChanged(this.value);
+                });
+
+                let options = select.selectAll('option')
+                    .data(countriesSorted)
+                    .enter()
+                    .append('option')
+                    .attr('value', function (d) {return d.Slug; })
+                    .html(function (d) {return d.Country; });
+            }
+
+            function SelectChanged(countrySlug) {
+                request.open('GET', 'https://api.covid19api.com/total/country/' + countrySlug, true);
+
+                request.onload = function() {
+                    let data = JSON.parse(this.response);
+
+                    if (request.status < 200 || request.status >= 400) {
+                        console.error('Unable to fetch data (Error code: ' + request.status + ')');
+
+                        return null;
+                    }
+
+                    console.log(data);
+
+                    CountryStats(COUNTRY_STATS_CLASS, data, PROPERTIES.SVG, PROPERTIES.GRAPH);
+                }
+
+                request.send();
+            }
+
+            function CountryStats(articleClass, countryData, svgProperties, graphProperties) {
+                let article = SelectArticle(articleClass);
+
+                let graphWidth = graphProperties.MAX_WIDTH - graphProperties.MARGIN.LEFT - graphProperties.MARGIN.RIGHT;
+                let graphHeight = graphProperties.MAX_HEIGHT - graphProperties.MARGIN.TOP - graphProperties.MARGIN.BOTTOM;
+
+                let warn = d3.select('#no-data-warning');
+
+                if (countryData.length == 0) {
+                    console.log('Requested country has no valid data');
+
+                    return;
+                }
+
+                let svg = article.select('svg#country-trends');
+
+                if (!svg.empty()) {
+                    svg.remove();
+                }
+
+                svg = article.append('svg')
+                    .attr('id', 'country-trends')
+                    .attr('width', svgProperties.WIDTH)
+                    .attr('height', svgProperties.HEIGHT)
+                    .attr('transform', 'translate(' + svgProperties.MARGIN.LEFT + ',' + svgProperties.MARGIN.TOP + ')');
+
+                let inputFormat = d3.time.format.iso; 
+                let outputFormat = d3.time.format('%Y %m %d');
+
+                let minDate = d3.min(countryData, function (d) { return outputFormat(inputFormat.parse(d.Date)); });
+                let maxDate = d3.max(countryData, function (d) { return outputFormat(inputFormat.parse(d.Date)); });
+
+                let maxTotal = Math.max(
+                    d3.max(countryData, function (d) {return d.Active; }),
+                    d3.max(countryData, function (d) {return d.Recovered; }),
+                    d3.max(countryData, function (d) {return d.Deaths; })
+                );
+
+                let xScale = d3.time.scale()
+                    .domain([new Date(minDate), new Date(maxDate)])
+                    .range([0, graphWidth]);
+
+                let yScale = d3.scale.linear()
+                    .domain([0, maxTotal])
+                    .range([graphHeight, 0])
+                    .nice();
+
+                let xAxis = d3.svg.axis()
+                    .scale(xScale)
+                    .orient('bottom');
+
+                let yAxis = d3.svg.axis()
+                    .scale(yScale)
+                    .ticks(5)
+                    .tickSize(-graphWidth)
+                    .orient('left');
+
+                let lineActive = d3.svg.line()
+                    .x(function (d) { return xScale(new Date(outputFormat(inputFormat.parse(d.Date)))); })
+                    .y(function (d) { return yScale(d.Active); });
+
+                let lineDeaths = d3.svg.line()
+                    .x(function (d) { return xScale(new Date(outputFormat(inputFormat.parse(d.Date)))); })
+                    .y(function (d) { return yScale(d.Deaths); });
+                
+                let lineRecovered = d3.svg.line()
+                    .x(function (d) { return xScale(new Date(outputFormat(inputFormat.parse(d.Date)))); })
+                    .y(function (d) { return yScale(d.Recovered); });
+
+                let areaDeaths = d3.svg.area()
+                    .x(function (d) { return xScale(new Date(outputFormat(inputFormat.parse(d.Date)))); })
+                    .y0(graphHeight)
+                    .y1(function (d) {return yScale(d.Deaths)});
+
+                let areaActive = d3.svg.area()
+                    .x(function (d) { return xScale(new Date(outputFormat(inputFormat.parse(d.Date)))); })
+                    .y0(function (d) {return Math.max(yScale(d.Deaths), yScale(d.Active)); })
+                    .y1(function (d) {return yScale(d.Active); });
+
+                let areaRecovered = d3.svg.area()
+                    .x(function (d) { return xScale(new Date(outputFormat(inputFormat.parse(d.Date)))); })
+                    .y0(function (d) {return Math.max(Math.min(yScale(d.Deaths), yScale(d.Active)), yScale(d.Recovered)); })
+                    .y1(function (d) {return yScale(d.Recovered); });
+
+                svg.append('path')
+                    .attr('class', 'line')
+                    .attr('d', lineRecovered(countryData))
+                    .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                    .attr('stroke-width', graphProperties.STROKE_WIDTH)
+                    .style('stroke', COLORS.TOTAL_RECOVERED)
+                    .attr('fill', 'none');
+
+                svg.append('path')
+                    .datum(countryData)
+                    .attr('class', 'area')
+                    .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                    .attr('fill', COLORS.TOTAL_RECOVERED)
+                    .attr('opacity', 0.5)
+                    .attr('d', areaRecovered);
+
+                svg.append('path')
+                    .attr('class', 'line')
+                    .attr('d', lineActive(countryData))
+                    .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                    .attr('stroke-width', graphProperties.STROKE_WIDTH)
+                    .style('stroke', COLORS.TOTAL_CONFIRMED)
+                    .attr('fill', 'none');
+
+                svg.append('path')
+                    .datum(countryData)
+                    .attr('class', 'area')
+                    .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                    .attr('fill', COLORS.TOTAL_CONFIRMED)
+                    .attr('opacity', 0.5)
+                    .attr('d', areaActive);
+
+                svg.append('path')
+                    .attr('class', 'line')
+                    .attr('d', lineDeaths(countryData))
+                    .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                    .attr('stroke-width', graphProperties.STROKE_WIDTH)
+                    .style('stroke', COLORS.TOTAL_DEATHS)
+                    .attr('fill', 'none');
+
+                svg.append('path')
+                    .datum(countryData)
+                    .attr('class', 'area')
+                    .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                    .attr('fill', COLORS.TOTAL_DEATHS)
+                    .attr('opacity', 0.5)
+                    .attr('d', areaDeaths);
+
+                let xLabels = svg.append('g')
+                    .attr('class', 'x axis')
+                    .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + (graphProperties.MARGIN.TOP + graphHeight)+ ')')
+                    .call(xAxis);
+
+                let yLabels = svg.append('g')
+                    .attr('class', 'y axis')
+                    .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                    .call(yAxis);
+
+                yLabels.select('path').remove();
+                yLabels.selectAll('line')
+                    .attr('stroke-dasharray', '5,5')
+                    .attr('opacity', 0.5);
+
+            }
+        </script>
+    </body>
+</html>

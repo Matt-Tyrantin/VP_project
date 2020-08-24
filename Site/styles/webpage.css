@@ -1,0 +1,130 @@
+body {
+    font-family: Helvetica, sans-serif;
+    height: 100%;
+    min-height: 100%;
+    margin: 0px;
+}
+
+section {
+    margin: 0px 35px 100px 25px;
+}
+
+footer {
+    clear: both;
+    position: relative;
+    margin-top: 200px;
+    background-color: #d9d9d9;
+    width: 100%;
+    height: 200px;
+}
+
+footer > div {
+    width: 40%;
+    float: left;
+    margin-left: 50px;
+}
+
+footer > div h2 {
+    margin: 10px;
+}
+
+footer > div p {
+    margin: 0px 0px 2px 30px;
+}
+
+footer > div li {
+    margin-left: 30px;
+}
+
+article.world-summary div.numeric-data p {
+    font-family: "Lucida Console", Monaco, monospace;
+}
+
+p.main {
+    margin: 50px 25px 0px 0px;
+    font-size: 30px;
+}
+
+p.sub {
+    margin: 10px 35px 0px 0px;
+    font-size: 20px;
+}
+
+article.country-picker {
+    width: 100%;
+    height: 600px;
+    font-size: 18px;
+}
+
+article.country-picker select {
+    font-family: Verdana, Geneva, sans-serif;
+    font-size: 16px;
+}
+
+section > h1 {
+    margin: 20px 0px 80px 0px;
+}
+
+h1 {
+    font-family: "Lucida Console", Monaco, monospace;
+    font-size: 30px;
+    text-align: center;
+    width: 100%;
+}
+
+h2 {
+    font-family: "Lucida Console", Monaco, monospace;
+}
+
+a {
+    font-family: "Lucida Console", Monaco, monospace;
+    color: #4564ff;
+}
+
+a:visited {
+    color: #4564ff;
+}
+
+button {
+    background-color: #4CAF50; 
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    transition-duration: 0.4s;
+}
+
+button.confirmed {
+    background-color: #e4e810;
+    color: #575757;
+}
+
+button.recovered {
+    background-color: #10c90a;
+}
+
+button.deaths {
+    background-color: #e66849;
+}
+
+.float-right {
+    text-align: right;
+    float: right;
+}
+
+.float-left {
+    text-align: left;
+    float: left;
+}
+
+#no-data-warning {
+    width: 100%;
+    height: 50px;
+    margin: 275px 0px 275px 0px;
+    text-align: center;
+    font-size: 26px;
+    color: red;
+}

@@ -1,0 +1,931 @@
+
+<!doctype html>
+
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+
+        <link rel="stylesheet" href="styles/webpage.css">
+        <link rel="stylesheet" href="styles/graph.css">
+
+        <script src="https://d3js.org/d3.v3.min.js"></script>
+    </head>
+
+    <body>
+        <main>
+            <section>
+                <h1>COVID-19 WORLD SPREAD</h1>
+
+                <article class="world-summary">
+                    <h2>Global COVID-19 summary</h2>
+                    <div class="numeric-data float-right">
+                        <p class="main">Active cases<br><span class="active"></span></p>
+                        <p class="sub">Today: <span class="active"></span></p>
+
+                        <p class="main">Recovered<br><span class="recovered"></span></p>
+                        <p class="sub">Today: <span class="recovered"></span></p>
+
+                        <p class="main">Deaths<br><span class="deaths"></span></p>
+                        <p class="sub">Today: <span class="deaths"></span></p>
+                    </div>
+                </article>
+
+                <article class="countries-stats">
+                    <article class="new-stats float-left">
+                        <h2>Newest country data</h2>
+                        <p>Show countries with most new:   
+                            <button class="confirmed new">INFECTIONS</button> 
+                            <button class="recovered new">RECOVERED</button>
+                            <button class="deaths new">DEATHS</button> 
+                        </p>
+                    </article>
+
+                    <article class="total-stats float-right">
+                        <h2>Total country data</h2>
+                        <p>Show countries with most total:   
+                            <button class="confirmed total">INFECTIONS</button> 
+                            <button class="recovered total">RECOVERED</button>
+                            <button class="deaths total">DEATHS</button> 
+                        </p>
+                    </article>
+                </article>
+            </section>
+
+            <section>
+                <h1>COVID-19 PER COUNTRY SPREAD</h1>
+
+                <article class="country-picker float-left">
+                    <p class="country-select float-left">
+                        Country: <select id="country-select"></select>
+                    </p>
+                    
+                    <p class="country-data float-right">
+                        Active cases: <span class="active"></span>
+                        Recovered: <span class="recovered"></span>
+                        Deaths: <span class="deaths"></span>
+                    </p>
+                    <p id="no-data-warning">No data for selected country.</p>
+                </article>
+            </section>
+        </main>
+
+        <footer>
+            <div class="about">
+                <h1>ABOUT</h1>
+                <p>This is a site developed for purpose of studying Data Visualisation.</p>
+                <h2>Author</h2>
+                <p>Matej Dmitrović</p>
+                <p><a href="mailto:mdmitrovic@etfos.hr">mdmitrovic@etfos.hr</a></p>
+            </div>
+
+            <div class="api">
+                <h1>API</h1>
+                <p>APIs used for creation of this site:</p>
+                <ul>
+                    <li><a href="https://covid19api.com/">https://api.covid19api.com/</a></li>
+                </ul>
+            </div>
+
+
+        </footer>
+
+        <script>
+            var WORLD_SUMMARY_CLASS   = '.world-summary';
+            var COUNTRIES_STATS_CLASS = '.countries-stats';
+            var COUNTRY_PICKER_CLASS = '.country-picker';
+
+            var GLOBAL_SUMMARY = {
+                SVG : {
+                    WIDTH  : 1150,
+                    HEIGHT : 500,
+
+                    MARGIN : {
+                        TOP    : 0,
+                        RIGHT  : 0,
+                        BOTTOM : 0,
+                        LEFT   : 0
+                    }
+                },
+
+                GRAPH : {
+                    MAX_WIDTH  : 1050,
+                    MAX_HEIGHT : 400,
+                    BAR_HEIGHT : 50,
+
+                    MARGIN : {
+                        TOP    : 50,
+                        RIGHT  : 0,
+                        BOTTOM : 0,
+                        LEFT   : 120
+                    }
+                }
+            };
+
+            var GLOBAL_STATS = {
+                SVG : {
+                    WIDTH  : 1500,
+                    HEIGHT : 500,
+
+                    MARGIN : {
+                        TOP    : 0,
+                        RIGHT  : 0,
+                        BOTTOM : 0,
+                        LEFT   : 0
+                    }
+                },
+
+                GRAPH : {
+                    MAX_WIDTH  : 1500,
+                    MAX_HEIGHT : 500,
+                    BAR_HEIGHT : 30,
+
+                    TRANSITION_TIME : 400,
+                    TRANSITION_EASE : 'linear',
+
+                    AXIS_Y_GAP : 200,
+
+                    MARGIN : {
+                        TOP    : 50,
+                        RIGHT  : 50,
+                        BOTTOM : 0,
+                        LEFT   : 50
+                    }
+                }
+            };
+
+            var COUNTRY_TRENDS = {
+                SVG : {
+                    WIDTH  : 1500,
+                    HEIGHT : 600,
+
+                    MARGIN : {
+                        TOP    : 0,
+                        RIGHT  : 0,
+                        BOTTOM : 0,
+                        LEFT   : 0
+                    }
+                },
+
+                GRAPH : {
+                    MAX_WIDTH  : 1500,
+                    MAX_HEIGHT : 500,
+
+                    TRANSITION_TIME : 800,
+                    TRANSITION_EASE : 'cubic',
+
+                    STROKE_WIDTH: 2,
+
+                    MARGIN : {
+                        TOP    : 50,
+                        RIGHT  : 50,
+                        BOTTOM : 0,
+                        LEFT   : 70
+                    }
+                }
+            }   
+
+            var COLORS = {
+                TOTAL_CONFIRMED : '#e4e81c',
+                TOTAL_RECOVERED : '#0fd609',
+                TOTAL_DEATHS    : '#e66849',
+
+                NEW_CONFIRMED : '#e4e81c',
+                NEW_RECOVERED : '#0fd609',
+                NEW_DEATHS    : '#e66849',
+            }
+
+            d3.select('#no-data-warning').style('display', 'none');
+            d3.select('p.country-data').style('display', 'none');
+
+            var request = new XMLHttpRequest()
+
+            // Data for global summary
+            request.open('GET', 'https://api.covid19api.com/summary', true);
+
+            request.onload = function() {
+                let data = JSON.parse(this.response);
+
+                console.log('Requesting global summary...');
+
+                if (request.status < 200 || request.status >= 400) {
+                    console.error('Unable to fetch data (Error code: ' + request.status + ')');
+
+                    return null;
+                }
+
+                console.log('Accesed global summary.');
+
+                let globalData    = data.Global;
+                let countriesData = data.Countries;
+
+                InsertGlobalSummary(
+                    globalData, 
+                    WORLD_SUMMARY_CLASS, 
+                    GLOBAL_SUMMARY.SVG, 
+                    GLOBAL_SUMMARY.GRAPH
+                );
+
+                InsertGlobalStats(
+                    countriesData, 
+                    COUNTRIES_STATS_CLASS, 
+                    GLOBAL_STATS.SVG, 
+                    GLOBAL_STATS.GRAPH
+                );
+
+                // Data for country-specific trends
+                // Load after you load global summary
+                request.open('GET', 'https://api.covid19api.com/countries', true);
+
+                request.onload = function() {
+                    let data = JSON.parse(this.response);
+
+                    console.log('Requesting country slugs...');
+
+                    if (request.status < 200 || request.status >= 400) {
+                        console.error('Unable to fetch data (Error code: ' + request.status + ')');
+
+                        return null;
+                    }
+
+                    console.log('Accessed country slugs.');
+
+                    CountryPicker(COUNTRY_PICKER_CLASS, data);
+                }
+
+                request.send();
+            }
+
+            request.send();
+
+            /*
+            * GRAPH INSERTATION FUNCTIONS
+            */
+
+            function SelectArticle(articleClass) {
+                let container = d3.select('article' + articleClass);
+
+                if (container == null) {
+                    console.error('Cannot find article with class ' + articleClass);
+
+                    return null;
+                }
+
+                return container;
+            }
+
+            /*
+            * GLOBAL STATS
+            */
+
+            function InsertGlobalSummary(globalData, articleClass, svgProperties, graphProperties) {
+                let container = SelectArticle(articleClass);
+
+                let graphWidth = graphProperties.MAX_WIDTH - graphProperties.MARGIN.LEFT - graphProperties.MARGIN.RIGHT;
+                let graphHeight = graphProperties.MAX_HEIGHT - graphProperties.MARGIN.TOP - graphProperties.MARGIN.BOTTOM;
+
+                let svg = container.append('svg')
+                    .attr('id', 'global-summary')
+                    .attr('width', svgProperties.WIDTH)
+                    .attr('height', svgProperties.HEIGHT)
+                    .attr('transform', 'translate(' + svgProperties.MARGIN.LEFT + ',' + svgProperties.MARGIN.TOP + ')');
+
+                let xScale = d3.scale.pow()
+                    .exponent(0.5)
+                    .domain([0, Math.max(globalData.TotalDeaths, globalData.TotalConfirmed, globalData.TotalRecovered)])
+                    .range([0, graphWidth])
+                    .nice();
+
+                let yScale = d3.scale.ordinal()
+                    .domain(['CONFIRMED', 'RECOVERED', 'DEATHS'])
+                    .rangeRoundBands([0, graphHeight]);
+
+                let xAxis = d3.svg.axis()
+                    .scale(xScale)
+                    .tickSize(-graphHeight)
+                    .ticks(6, 's')
+                    .orient('top');
+
+                let yAxis = d3.svg.axis()
+                    .scale(yScale)
+                    .orient('left');
+
+                /*
+                *  Number tracking line
+                */
+
+                let numberLine;
+                let numberText;
+
+                let HandleMouseOver = function() {
+                    let row = d3.select(this);
+                    let x = d3.mouse(this)[0];
+                    let y = parseInt(row.attr('y'));
+                    
+                    mouseHovering = true;
+
+                    numberLine = svg.append('line')
+                        .attr('visibility', 'hidden')
+                        .style('stroke', 'black')
+                        .style('stroke-width', 2);  
+
+                    numberText = svg.append('text')
+                        .attr('visibility', 'hidden');
+
+                    //while (mouseHovering) {
+                        numberLine
+                            .attr('visibility', 'visible')
+                            .attr('x1', x)
+                            .attr('x2', x)
+                            .attr('y2', y + graphProperties.BAR_HEIGHT);
+                        
+                        numberText
+                            .attr('visibility', 'visible')
+                            .attr('transform', 'translate(' + x + ',' + 20 + ')')
+                            .text(d3.format('.3s')(xScale.invert(x - graphProperties.MARGIN.LEFT)));
+                    //}
+                }
+
+                let HandleMouseOut = function() {
+                    numberLine.remove();
+                    numberText.remove();
+                }
+
+                let GraphInsertation = function(totalData, newData, label)
+                {
+                    let y = yScale(label);
+                    let container = svg.append('g');
+                    let colorTotal;
+                    let colorNew = 'yellow';
+
+                    if (label == 'CONFIRMED') {
+                        colorTotal = COLORS.TOTAL_CONFIRMED;
+                    } else if (label == 'DEATHS') {
+                        colorTotal = COLORS.TOTAL_DEATHS;
+                    } else {
+                        colorTotal = COLORS.TOTAL_RECOVERED;
+                    }
+                    
+                    container.append('rect')
+                        .attr('x', graphProperties.MARGIN.LEFT)
+                        .attr('y', graphProperties.MARGIN.TOP + y + (2*graphProperties.BAR_HEIGHT/ 3))
+                        .attr('height', graphProperties.BAR_HEIGHT)
+                        .attr('width', xScale(totalData))
+                        .attr('fill', colorTotal)
+                        .on('mouseover', HandleMouseOver)
+                        .on('mouseout', HandleMouseOut);
+
+                    container.append('rect') 
+                        .attr('x', graphProperties.MARGIN.LEFT)
+                        .attr('y', graphProperties.MARGIN.TOP + y + (2*graphProperties.BAR_HEIGHT/ 3))
+                        .attr('height', graphProperties.BAR_HEIGHT)
+                        .attr('width', xScale(newData))
+                        .attr('fill', colorNew)
+                        .on('mouseover', HandleMouseOver)
+                        .on('mouseout', HandleMouseOut);
+                }
+
+                GraphInsertation(globalData.TotalConfirmed, globalData.NewConfirmed, 'CONFIRMED');
+                GraphInsertation(globalData.TotalDeaths, globalData.NewDeaths, 'DEATHS');
+                GraphInsertation(globalData.TotalRecovered, globalData.NewRecovered, 'RECOVERED');
+
+                let xLabels = svg.append('g')
+                    .attr('class', 'x axis')
+                    .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                    .call(xAxis);
+
+                let yLabels = svg.append('g')
+                    .attr('class', 'y axis')
+                    .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                    .call(yAxis);
+
+                xLabels.select('path').remove();
+                xLabels.selectAll('line')
+                    .attr('stroke-dasharray', '5,5')
+                    .attr('opacity', 0.5);
+                
+                container.select('.main span.active').html(globalData.TotalConfirmed.toLocaleString());
+                container.select('.main span.recovered').html(globalData.TotalRecovered.toLocaleString());
+                container.select('.main span.deaths').html(globalData.TotalDeaths.toLocaleString());
+
+                container.select('.sub span.active').html(globalData.NewConfirmed.toLocaleString());
+                container.select('.sub span.recovered').html(globalData.NewRecovered.toLocaleString());
+                container.select('.sub span.deaths').html(globalData.NewDeaths.toLocaleString());
+            }
+
+            function InsertGlobalStats(countriesData, articleClass, svgProperties, graphProperties) {
+                let container = SelectArticle(articleClass);
+
+                let graphWidthNew = graphProperties.MAX_WIDTH/ 2 - graphProperties.MARGIN.LEFT - graphProperties.AXIS_Y_GAP/ 2;
+                let graphWidthTotal = graphProperties.MAX_WIDTH/ 2 - graphProperties.MARGIN.RIGHT - graphProperties.AXIS_Y_GAP/ 2;
+                let graphWidth = graphWidthNew + graphWidthTotal;
+                let graphHeight = graphProperties.MAX_HEIGHT - graphProperties.MARGIN.TOP - graphProperties.MARGIN.BOTTOM;
+
+                let graphHalf = graphProperties.MAX_WIDTH/ 2;
+
+                let svg = container.append('svg')
+                    .attr('id', 'global-stats')
+                    .attr('width', svgProperties.WIDTH)
+                    .attr('height', svgProperties.HEIGHT)
+                    .attr('transform', 'translate(' + svgProperties.MARGIN.LEFT + ',' + svgProperties.MARGIN.TOP + ')');
+
+                let maxNew = Math.max(
+                    d3.max(countriesData, function (d) {return d.NewConfirmed; }),
+                    d3.max(countriesData, function (d) {return d.NewRecovered; }),
+                    d3.max(countriesData, function (d) {return d.NewDeaths; })
+                );
+
+                let maxTotal = Math.max(
+                    d3.max(countriesData, function (d) {return d.TotalConfirmed; }),
+                    d3.max(countriesData, function (d) {return d.TotalRecovered; }),
+                    d3.max(countriesData, function (d) {return d.TotalDeaths; })
+                );
+
+                let countriesSorted = Object.values(countriesData).sort((a, b) => d3.descending(a.NewConfirmed, b.NewConfirmed)).slice(0, 10);
+                let countries = countriesSorted.map(country => country.Country);
+                
+                let xScaleNew = d3.scale.pow()
+                    .exponent(0.5)
+                    .domain([0, maxNew])
+                    .range([graphWidthNew, 0])
+                    .nice();
+
+                let xScaleTotal = d3.scale.pow()
+                    .exponent(0.5)
+                    .domain([0, maxTotal])
+                    .range([0, graphWidthTotal])
+                    .nice();
+
+                let yScale = d3.scale.ordinal()
+                    .domain(countries)
+                    .rangeRoundBands([0, graphHeight]);
+
+                let xAxisNew = d3.svg.axis()
+                    .scale(xScaleNew)
+                    .tickSize(-graphHeight)
+                    .ticks(6, 's')
+                    .orient('top');
+
+                let xAxisTotal = d3.svg.axis()
+                    .scale(xScaleTotal)
+                    .tickSize(-graphHeight)
+                    .ticks(6, 's')
+                    .orient('top');
+                    
+                let yAxis = d3.svg.axis()
+                    .scale(yScale)
+                    .orient('left');
+
+                let barGroupsNew = svg.selectAll('g.bar-group-new')
+                    .data(countriesSorted)
+                    .enter()
+                    .append('g')
+                    .attr('class', 'bar-group-new');
+
+                let WidthNew = function (value) {
+                    return xScaleNew.range()[0] - xScaleNew(value);
+                }
+
+                let XNew = function (value) {
+                    return graphHalf - graphProperties.AXIS_Y_GAP/ 2 - WidthNew(value);
+                }
+
+                barGroupsNew.append('rect')
+                    .attr('class', 'bar-confirmed')
+                    .attr('x', function (d) {return XNew(d.NewConfirmed); })
+                    .attr('y', function (d) {return graphProperties.MARGIN.TOP + yScale(d.Country); })
+                    .attr('width', function (d) {return WidthNew(d.NewConfirmed); })
+                    .attr('height', graphProperties.BAR_HEIGHT/ 3)
+                    .attr('fill', COLORS.NEW_CONFIRMED);
+
+                barGroupsNew.append('rect')
+                    .attr('class', 'bar-recovered')
+                    .attr('x', function (d) {return XNew(d.NewRecovered); })
+                    .attr('y', function (d) {return graphProperties.MARGIN.TOP + yScale(d.Country) + graphProperties.BAR_HEIGHT/ 3; })
+                    .attr('width', function (d) {return WidthNew(d.NewRecovered); })
+                    .attr('height', graphProperties.BAR_HEIGHT/ 3)
+                    .attr('fill', COLORS.NEW_RECOVERED);
+
+                barGroupsNew.append('rect')
+                    .attr('class', 'bar-deaths')
+                    .attr('x', function (d) {return XNew(d.NewDeaths); })
+                    .attr('y', function (d) {return graphProperties.MARGIN.TOP + yScale(d.Country) + graphProperties.BAR_HEIGHT*(2/3); })
+                    .attr('width', function (d) {return WidthNew(d.NewDeaths); })
+                    .attr('height', graphProperties.BAR_HEIGHT/ 3)
+                    .attr('fill', COLORS.NEW_DEATHS);
+
+                let WidthTotal = function (value) {
+                    return  xScaleTotal(value);
+                }
+
+                let XTotal = function (value) {
+                    return graphHalf + graphProperties.AXIS_Y_GAP/ 2;
+                }
+
+                let barGroupsTotal = svg.selectAll('g.bar-group-total')
+                    .data(countriesSorted)
+                    .enter()
+                    .append('g')
+                    .attr('class', 'bar-group-total');
+
+                barGroupsTotal.append('rect')
+                    .attr('class', 'bar-confirmed')
+                    .attr('x', function (d) {return XTotal(d.TotalConfirmed); })
+                    .attr('y', function (d) {return graphProperties.MARGIN.TOP + yScale(d.Country); })
+                    .attr('width', function (d) {return WidthTotal(d.TotalConfirmed); })
+                    .attr('height', graphProperties.BAR_HEIGHT/ 3)
+                    .attr('fill', COLORS.TOTAL_CONFIRMED);
+
+                barGroupsTotal.append('rect')
+                    .attr('class', 'bar-recovered')
+                    .attr('x', function (d) {return XTotal(d.TotalRecovered); })
+                    .attr('y', function (d) {return graphProperties.MARGIN.TOP + yScale(d.Country) + graphProperties.BAR_HEIGHT/ 3; })
+                    .attr('width', function (d) {return WidthTotal(d.TotalRecovered); })
+                    .attr('height', graphProperties.BAR_HEIGHT/ 3)
+                    .attr('fill', COLORS.TOTAL_RECOVERED);
+
+                barGroupsTotal.append('rect')
+                    .attr('class', 'bar-deaths')
+                    .attr('x', function (d) {return XTotal(d.TotalDeaths); })
+                    .attr('y', function (d) {return graphProperties.MARGIN.TOP + yScale(d.Country) + graphProperties.BAR_HEIGHT*(2/3); })
+                    .attr('width', function (d) {return WidthTotal(d.TotalDeaths); })
+                    .attr('height', graphProperties.BAR_HEIGHT/ 3)
+                    .attr('fill', COLORS.TOTAL_DEATHS);
+
+                let xLabelsNew = svg.append('g')
+                    .attr('class', 'x axis')
+                    .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                    .call(xAxisNew);
+
+                let xLabelsTotal= svg.append('g')
+                    .attr('class', 'x axis')
+                    .attr('transform', 'translate(' + (graphHalf + graphProperties.AXIS_Y_GAP/ 2) + ',' + graphProperties.MARGIN.TOP + ')')
+                    .call(xAxisTotal);
+
+                let yLabels = svg.append('g')
+                    .attr('class', 'y axis')
+                    .attr('transform', 'translate(' + (graphHalf + graphProperties.AXIS_Y_GAP/ 2) + ',' + graphProperties.MARGIN.TOP + ')')
+                    .call(yAxis);
+
+                yLabels.selectAll('text')
+                    //.attr('x', 0)
+                    .attr('transform', 'translate(' + (-graphProperties.AXIS_Y_GAP/ 2 + 10) + ',-6)')
+                    .style('text-anchor', 'middle');
+
+                yLabels.select('.domain').remove();
+                yLabels.selectAll('line')
+                    .remove();
+
+                xLabelsNew.select('path').remove();
+                xLabelsNew.selectAll('line')
+                    .attr('stroke-dasharray', '5,5')
+                    .attr('opacity', 0.5);
+
+                xLabelsTotal.select('path').remove();
+                xLabelsTotal.selectAll('line')
+                    .attr('stroke-dasharray', '5,5')
+                    .attr('opacity', 0.5);
+
+                let currentHighlight;
+
+                let UpdateSort = function(sortBy) {
+                    UpdateGraph(Object.values(countriesData).sort((a, b) => d3.descending(a[sortBy], b[sortBy])).slice(0, 10), sortBy);
+                }
+
+                let UpdateGraph = function(newData, highlight) {
+                    barGroupsNew.data(newData);
+                    barGroupsNew.select('.bar-confirmed')
+                        .transition()
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .attr('opacity', function () {return (currentHighlight == highlight || highlight.includes('Confirmed'))? 1 : 0.2;})
+                        .attr('x', function (d) {return XNew(d.NewConfirmed); })
+                        .attr('width', function (d) {return WidthNew(d.NewConfirmed); });
+
+                    barGroupsNew.select('.bar-recovered')
+                        .transition()
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .attr('opacity', function () {return (currentHighlight == highlight || highlight.includes('Recovered'))? 1 : 0.1;})
+                        .attr('x', function (d) {return XNew(d.NewRecovered); })
+                        .attr('width', function (d) {return WidthNew(d.NewRecovered); });
+
+                    barGroupsNew.select('.bar-deaths')
+                        .transition()
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .attr('opacity', function () {return (currentHighlight == highlight || highlight.includes('Deaths'))? 1 : 0.1;})
+                        .attr('x', function (d) {return XNew(d.NewDeaths); })
+                        .attr('width', function (d) {return WidthNew(d.NewDeaths); });
+
+                    barGroupsTotal.data(newData)
+                    barGroupsTotal.select('.bar-confirmed')
+                        .transition()
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .attr('opacity', function () {return (currentHighlight == highlight || highlight.includes('Confirmed'))? 1 : 0.2;})
+                        .attr('x', function (d) {return XTotal(d.TotalConfirmed); })
+                        .attr('width', function (d) {return WidthTotal(d.TotalConfirmed); });
+
+                    barGroupsTotal.select('.bar-recovered')
+                        .transition()
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .attr('opacity', function () {return (currentHighlight == highlight || highlight.includes('Recovered'))? 1 : 0.1;})
+                        .attr('x', function (d) {return XTotal(d.TotalRecovered); })
+                        .attr('width', function (d) {return WidthTotal(d.TotalRecovered); });
+
+                    barGroupsTotal.select('.bar-deaths')
+                        .transition()
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .attr('opacity', function () {return (currentHighlight == highlight || highlight.includes('Deaths'))? 1 : 0.1;})
+                        .attr('x', function (d) {return XTotal(d.TotalDeaths); })
+                        .attr('width', function (d) {return WidthTotal(d.TotalDeaths); });
+
+                    yScale.domain(newData.map(country => country.Country));
+                    yLabels.transition().duration(graphProperties.TRANSITION_TIME).call(yAxis);
+                    yLabels.selectAll('text')
+                        //.attr('x', 0)
+                        .attr('transform', 'translate(' + (-graphProperties.AXIS_Y_GAP/ 2 + 10) + ',-6)')
+                        .style('text-anchor', 'middle');
+
+                    yLabels.select('.domain').remove();
+                    yLabels.selectAll('line').remove();
+
+                    currentHighlight = (currentHighlight == highlight)? null : highlight;
+                }
+
+                container.select('button.confirmed.new').on('click', function () {UpdateSort('NewConfirmed'); });
+                container.select('button.recovered.new').on('click', function () {UpdateSort('NewRecovered'); });
+                container.select('button.deaths.new').on('click', function () {UpdateSort('NewDeaths'); });
+
+                container.select('button.confirmed.total').on('click', function () {UpdateSort('TotalConfirmed'); });
+                container.select('button.recovered.total').on('click', function () {UpdateSort('TotalRecovered'); });
+                container.select('button.deaths.total').on('click', function () {UpdateSort('TotalDeaths'); });
+            }
+        
+            /*
+            * COUNTRY TRENDS
+            */
+
+            function CountryPicker(articleClass, countries) {
+                let article = SelectArticle(articleClass);
+                let select = article.select('select#country-select');
+                let countriesSorted = Object.values(countries).sort((a, b) => d3.ascending(a.Country, b.Country));
+
+                select.on('change', function () {
+                    SelectChanged(this.value);
+                });
+
+                let options = select.selectAll('option')
+                    .data(countriesSorted)
+                    .enter()
+                    .append('option')
+                    .attr('value', function (d) {return d.Slug; })
+                    .html(function (d) {return d.Country; });
+            }
+
+            function SelectChanged(countrySlug) {
+                request.open('GET', 'https://api.covid19api.com/total/country/' + countrySlug, true);
+
+                request.onload = function() {
+                    let data = JSON.parse(this.response);
+
+                    console.log('Requesting country data [' + countrySlug +  ']...');
+
+                    if (request.status < 200 || request.status >= 400) {
+                        console.error('Unable to fetch data (Error code: ' + request.status + ')');
+
+                        return null;
+                    }
+
+                    console.log('Accessed country data [' + countrySlug +  '].');
+
+                    CountryTrends(COUNTRY_PICKER_CLASS, data, COUNTRY_TRENDS.SVG, COUNTRY_TRENDS.GRAPH);
+                }
+
+                request.send();
+            }
+
+            function CountryTrends(articleClass, countryData, svgProperties, graphProperties) {
+                let article = SelectArticle(articleClass);
+
+                let graphWidth = graphProperties.MAX_WIDTH - graphProperties.MARGIN.LEFT - graphProperties.MARGIN.RIGHT;
+                let graphHeight = graphProperties.MAX_HEIGHT - graphProperties.MARGIN.TOP - graphProperties.MARGIN.BOTTOM;
+
+                let svg = article.select('svg#country-trends');
+                let warn = article.select('#no-data-warning');
+                let dataSpans = article.select('p.country-data');
+
+                if (countryData.length == 0) {
+                    console.log('Requested country has no valid data');
+
+                    warn.style('display', 'block');
+                    dataSpans.style('display', 'none');
+
+                    if(!svg.empty()) {
+                        svg.remove();
+                    }
+
+                    return;
+
+                } else {
+                    warn.style('display', 'none');
+                    dataSpans.style('display', 'block');
+                }
+
+                let inputFormat = d3.time.format.iso; 
+                let outputFormat = d3.time.format('%Y %m %d');
+
+                let minDate = d3.min(countryData, function (d) { return outputFormat(inputFormat.parse(d.Date)); });
+                let maxDate = d3.max(countryData, function (d) { return outputFormat(inputFormat.parse(d.Date)); });
+
+                let maxTotal = Math.max(
+                    d3.max(countryData, function (d) {return d.Active; }),
+                    d3.max(countryData, function (d) {return d.Recovered; }),
+                    d3.max(countryData, function (d) {return d.Deaths; })
+                );
+
+                let xScale = d3.time.scale()
+                    .domain([new Date(minDate), new Date(maxDate)])
+                    .range([0, graphWidth]);
+
+                let yScale = d3.scale.linear()
+                    .domain([0, maxTotal])
+                    .range([graphHeight, 0])
+                    .nice();
+
+                let xAxis = d3.svg.axis()
+                    .scale(xScale)
+                    .orient('bottom');
+
+                let yAxis = d3.svg.axis()
+                    .scale(yScale)
+                    .ticks(5)
+                    .tickSize(-graphWidth)
+                    .orient('left');
+
+                let lineActive = d3.svg.line()
+                    .x(function (d) { return xScale(new Date(outputFormat(inputFormat.parse(d.Date)))); })
+                    .y(function (d) { return yScale(d.Active); });
+
+                let lineDeaths = d3.svg.line()
+                    .x(function (d) { return xScale(new Date(outputFormat(inputFormat.parse(d.Date)))); })
+                    .y(function (d) { return yScale(d.Deaths); });
+                
+                let lineRecovered = d3.svg.line()
+                    .x(function (d) { return xScale(new Date(outputFormat(inputFormat.parse(d.Date)))); })
+                    .y(function (d) { return yScale(d.Recovered); });
+
+                let areaDeaths = d3.svg.area()
+                    .x(function (d) { return xScale(new Date(outputFormat(inputFormat.parse(d.Date)))); })
+                    .y0(graphHeight)
+                    .y1(function (d) {return yScale(d.Deaths)});
+
+                let areaActive = d3.svg.area()
+                    .x(function (d) { return xScale(new Date(outputFormat(inputFormat.parse(d.Date)))); })
+                    .y0(function (d) {return Math.max(yScale(d.Deaths), yScale(d.Active)); })
+                    .y1(function (d) {return yScale(d.Active); });
+
+                let areaRecovered = d3.svg.area()
+                    .x(function (d) { return xScale(new Date(outputFormat(inputFormat.parse(d.Date)))); })
+                    .y0(function (d) {return Math.max(Math.min(yScale(d.Deaths), yScale(d.Active)), yScale(d.Recovered)); })
+                    .y1(function (d) {return yScale(d.Recovered); });
+
+                let todaysValues = countryData[countryData.length - 1];
+
+                article.select('span.active').html(todaysValues.Active.toLocaleString());
+                article.select('span.recovered').html(todaysValues.Recovered.toLocaleString());
+                article.select('span.deaths').html(todaysValues.Deaths.toLocaleString());
+
+                if (!svg.empty()) {
+                    svg.select('.line.recovered')
+                        .transition()
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .attr('d', lineRecovered(countryData));
+
+                    svg.select('.area.recovered')
+                        .datum(countryData)
+                        .transition()
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .attr('d', areaRecovered);
+
+                    svg.select('.line.active')
+                        .transition()
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .attr('d', lineActive(countryData));
+
+                    svg.select('.area.active')
+                        .datum(countryData)
+                        .transition()
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .attr('d', areaActive);
+
+                    svg.select('.line.deaths')
+                        .transition()
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .attr('d', lineDeaths(countryData));
+
+                    svg.select('.area.deaths')
+                        .datum(countryData)
+                        .transition()
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .attr('d', areaDeaths);
+
+                    let xLabels = svg.select('.x.axis')
+                        .transition()
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .call(xAxis);
+
+                    let yLabels = svg.select('.y.axis')
+                        .transition()
+                        .duration(graphProperties.TRANSITION_TIME)
+                        .ease(graphProperties.TRANSITION_EASE)
+                        .call(yAxis);
+
+                    yLabels.select('.domain').remove();
+                    yLabels.selectAll('line')
+                        .attr('stroke-dasharray', '5,5')
+                        .attr('opacity', 0.5);
+
+                } else {
+                    svg = article.append('svg')
+                        .attr('id', 'country-trends')
+                        .attr('width', svgProperties.WIDTH)
+                        .attr('height', svgProperties.HEIGHT)
+                        .attr('transform', 'translate(' + svgProperties.MARGIN.LEFT + ',' + svgProperties.MARGIN.TOP + ')');
+
+                    svg.append('path')
+                        .attr('class', 'line recovered')
+                        .attr('d', lineRecovered(countryData))
+                        .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                        .attr('stroke-width', graphProperties.STROKE_WIDTH)
+                        .style('stroke', COLORS.TOTAL_RECOVERED)
+                        .attr('fill', 'none');
+
+                    svg.append('path')
+                        .datum(countryData)
+                        .attr('class', 'area recovered')
+                        .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                        .attr('fill', COLORS.TOTAL_RECOVERED)
+                        .attr('opacity', 0.5)
+                        .attr('d', areaRecovered);
+
+                    svg.append('path')
+                        .attr('class', 'line active')
+                        .attr('d', lineActive(countryData))
+                        .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                        .attr('stroke-width', graphProperties.STROKE_WIDTH)
+                        .style('stroke', COLORS.TOTAL_CONFIRMED)
+                        .attr('fill', 'none');
+
+                    svg.append('path')
+                        .datum(countryData)
+                        .attr('class', 'area active')
+                        .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                        .attr('fill', COLORS.TOTAL_CONFIRMED)
+                        .attr('opacity', 0.5)
+                        .attr('d', areaActive);
+
+                    svg.append('path')
+                        .attr('class', 'line deaths')
+                        .attr('d', lineDeaths(countryData))
+                        .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                        .attr('stroke-width', graphProperties.STROKE_WIDTH)
+                        .style('stroke', COLORS.TOTAL_DEATHS)
+                        .attr('fill', 'none');
+
+                    svg.append('path')
+                        .datum(countryData)
+                        .attr('class', 'area deaths')
+                        .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                        .attr('fill', COLORS.TOTAL_DEATHS)
+                        .attr('opacity', 0.5)
+                        .attr('d', areaDeaths);
+
+                    let xLabels = svg.append('g')
+                        .attr('class', 'x axis')
+                        .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + (graphProperties.MARGIN.TOP + graphHeight)+ ')')
+                        .call(xAxis);
+
+                    let yLabels = svg.append('g')
+                        .attr('class', 'y axis')
+                        .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                        .call(yAxis);
+
+                    yLabels.select('path').remove();
+                    yLabels.selectAll('line')
+                        .attr('stroke-dasharray', '5,5')
+                        .attr('opacity', 0.5);
+                }
+            }
+        </script>
+    </body>
+</html>
