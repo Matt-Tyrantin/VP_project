@@ -742,7 +742,7 @@
                 }
 
                 let inputFormat = d3.time.format.iso; 
-                let outputFormat = d3.time.format('%Y %m %d');
+                let outputFormat = d3.time.format('%Y.%m.%d.');
 
                 let minDate = d3.min(countryData, function (d) { return outputFormat(inputFormat.parse(d.Date)); });
                 let maxDate = d3.max(countryData, function (d) { return outputFormat(inputFormat.parse(d.Date)); });
@@ -755,6 +755,10 @@
 
                 let xScale = d3.time.scale()
                     .domain([new Date(minDate), new Date(maxDate)])
+                    .range([0, graphWidth]);
+
+                let arrayScale = d3.scale.linear()
+                    .domain([0, countryData.length])
                     .range([0, graphWidth]);
 
                 let yScale = d3.scale.linear()
@@ -931,7 +935,64 @@
                     yLabels.selectAll('line')
                         .attr('stroke-dasharray', '5,5')
                         .attr('opacity', 0.5);
+
+                    svg.append('rect')
+                        .attr('id', 'hover-area')
+                        .attr('width', graphWidth)
+                        .attr('height', graphHeight)
+                        .attr('transform', 'translate(' + graphProperties.MARGIN.LEFT + ',' + graphProperties.MARGIN.TOP + ')')
+                        .attr('opacity', 0);
                 }
+
+                let hoverArea = svg.select('#hover-area');
+
+                hoverArea.on('mouseenter', function () {
+                    console.log('Enter');
+                    vLine = svg.append('line')
+                        .attr('id', 'vertical-line')
+                        .style('stroke', 'black')
+                        .style('stroke-width', 2)
+                        .style('pointer-events', 'none');
+
+                    vText = svg.append('g')
+                        .attr('id', 'vertical-text')
+                        .style('pointer-events', 'none');
+
+                    let container = vText.append('g')
+                        .attr('transform', 'translate(-17,' + (graphProperties.MARGIN.TOP - 5) + ')')
+                        .attr('class', 'total');
+
+                    container.append('text').attr('class', 'total-date');
+                    container.append('text').attr('class', 'total-active').attr('y', '1.5em').attr('x', '1em');
+                    container.append('text').attr('class', 'total-recovered').attr('y', '3em').attr('x', '1em');
+                    container.append('text').attr('class', 'total-deaths').attr('y', '4.5em').attr('x', '1em');
+                });
+
+                hoverArea.on('mousemove', function () {
+                    let mouse = d3.mouse(this);
+                    let x = mouse[0];
+
+                    let data = countryData[parseInt(arrayScale.invert(x))];
+                    let dataOld = countryData[parseInt(arrayScale.invert(x - 1))]
+
+                    svg.select('#vertical-line')
+                        .attr('x1', x + graphProperties.MARGIN.LEFT)
+                        .attr('x2', x + graphProperties.MARGIN.LEFT)
+                        .attr('y1', graphProperties.MARGIN.TOP)
+                        .attr('y2', Math.min(yScale(data.Recovered), yScale(data.Deaths), yScale(data.Active)) + graphProperties.MARGIN.TOP);
+
+                    svg.select('#vertical-text').attr('transform', 'translate(' + (x + graphProperties.MARGIN.LEFT + 5) + ',0)');
+
+                    svg.select('#vertical-text').select('text.total-date').html(outputFormat(inputFormat.parse(data.Date)));
+                    svg.select('#vertical-text').select('text.total-active').html('Active: ' + data.Active);
+                    svg.select('#vertical-text').select('text.total-recovered').html('Recovered: ' + data.Recovered);
+                    svg.select('#vertical-text').select('text.total-deaths').html('Deaths: ' + data.Deaths);
+                });
+
+                hoverArea.on('mouseout', function () {
+                    svg.select('#vertical-line').remove();
+                    svg.select('#vertical-text').remove();
+                });
             }
         </script>
     </body>
