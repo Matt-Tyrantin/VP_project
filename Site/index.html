@@ -742,7 +742,7 @@
                 }
 
                 let inputFormat = d3.time.format.iso; 
-                let outputFormat = d3.time.format('%Y.%m.%d.');
+                let outputFormat = d3.time.format('%Y-%m-%d');
 
                 let minDate = d3.min(countryData, function (d) { return outputFormat(inputFormat.parse(d.Date)); });
                 let maxDate = d3.max(countryData, function (d) { return outputFormat(inputFormat.parse(d.Date)); });
