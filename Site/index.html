@@ -871,7 +871,8 @@
                         .attr('id', 'country-trends')
                         .attr('width', svgProperties.WIDTH)
                         .attr('height', svgProperties.HEIGHT)
-                        .attr('transform', 'translate(' + svgProperties.MARGIN.LEFT + ',' + svgProperties.MARGIN.TOP + ')');
+                        .attr('transform', 'translate(' + svgProperties.MARGIN.LEFT + ',' + svgProperties.MARGIN.TOP + ')')
+                        .style('overflow', 'visible');
 
                     svg.append('path')
                         .attr('class', 'line recovered')
@@ -946,6 +947,10 @@
 
                 let hoverArea = svg.select('#hover-area');
 
+                if (hoverArea.empty()) {
+                    return;
+                }
+
                 hoverArea.on('mouseenter', function () {
                     console.log('Enter');
                     vLine = svg.append('line')
@@ -958,14 +963,13 @@
                         .attr('id', 'vertical-text')
                         .style('pointer-events', 'none');
 
-                    let container = vText.append('g')
-                        .attr('transform', 'translate(-17,' + (graphProperties.MARGIN.TOP - 5) + ')')
-                        .attr('class', 'total');
+                    let container = vText.append('g').attr('class', 'total-container');
 
-                    container.append('text').attr('class', 'total-date');
+                    container.append('text').attr('class', 'total-date').attr('text-anchor', 'middle').attr('x', '0.5em');
                     container.append('text').attr('class', 'total-active').attr('y', '1.5em').attr('x', '1em');
-                    container.append('text').attr('class', 'total-recovered').attr('y', '3em').attr('x', '1em');
-                    container.append('text').attr('class', 'total-deaths').attr('y', '4.5em').attr('x', '1em');
+                    container.append('text').attr('class', 'total-confirmed').attr('y', '3em').attr('x', '1em');
+                    container.append('text').attr('class', 'total-recovered').attr('y', '4.5em').attr('x', '1em');
+                    container.append('text').attr('class', 'total-deaths').attr('y', '6em').attr('x', '1em');
                 });
 
                 hoverArea.on('mousemove', function () {
@@ -973,20 +977,32 @@
                     let x = mouse[0];
 
                     let data = countryData[parseInt(arrayScale.invert(x))];
-                    let dataOld = countryData[parseInt(arrayScale.invert(x - 1))]
 
-                    svg.select('#vertical-line')
+                    let vLine = svg.select('#vertical-line');
+                    let vText = svg.select('#vertical-text');
+                    let vContainer = vText.select('.total-container');
+
+                    vLine
                         .attr('x1', x + graphProperties.MARGIN.LEFT)
                         .attr('x2', x + graphProperties.MARGIN.LEFT)
                         .attr('y1', graphProperties.MARGIN.TOP)
                         .attr('y2', Math.min(yScale(data.Recovered), yScale(data.Deaths), yScale(data.Active)) + graphProperties.MARGIN.TOP);
 
-                    svg.select('#vertical-text').attr('transform', 'translate(' + (x + graphProperties.MARGIN.LEFT + 5) + ',0)');
+                    if (x >= graphWidth - 100) {
+                        vContainer.attr('transform', 'translate(-30,' + (graphProperties.MARGIN.TOP - 5) + ')');
+                        vContainer.attr('text-anchor', 'end');
+                    } else {
+                        vContainer.attr('transform', 'translate(-17,' + (graphProperties.MARGIN.TOP - 5) + ')');
+                        vContainer.attr('text-anchor', 'start');
+                    }
 
-                    svg.select('#vertical-text').select('text.total-date').html(outputFormat(inputFormat.parse(data.Date)));
-                    svg.select('#vertical-text').select('text.total-active').html('Active: ' + data.Active);
-                    svg.select('#vertical-text').select('text.total-recovered').html('Recovered: ' + data.Recovered);
-                    svg.select('#vertical-text').select('text.total-deaths').html('Deaths: ' + data.Deaths);
+                    vText.attr('transform', 'translate(' + (x + graphProperties.MARGIN.LEFT + 5) + ',0)');
+
+                    vText.select('text.total-date').html(outputFormat(inputFormat.parse(data.Date)));
+                    vText.select('text.total-confirmed').html('Total cases: ' + data.Confirmed);
+                    vText.select('text.total-active').html('Active: ' + data.Active);
+                    vText.select('text.total-recovered').html('Recovered: ' + data.Recovered);
+                    vText.select('text.total-deaths').html('Deaths: ' + data.Deaths);
                 });
 
                 hoverArea.on('mouseout', function () {
